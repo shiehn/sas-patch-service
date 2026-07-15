@@ -4,10 +4,12 @@
 standup bass sound"* and get back the synth patches that actually *sound* like that —
 matched by audio embeddings, not by names, folders, or tags.
 
-Part of [Signals & Sorcery](https://signalsandsorcery.org). This repo is the
-**Phase 0 research spike**: it proves the retrieval idea end-to-end on a laptop over
-the ~3.5k human-made patches that ship with Surge XT, before any generation pipeline
-or web service gets built.
+A complete, self-contained pipeline — corpus ingest, headless probe rendering,
+audio-embedding index, search CLI, and a listening-test harness — that runs
+end-to-end on a laptop over the ~3.5k human-made patches distributed with Surge XT.
+No cloud, no GPU required. Built as research for
+[Signals & Sorcery](https://signalsandsorcery.org), but useful on its own to anyone
+with a pile of synth patches and a need to find the right one by describing it.
 
 ```
 $ .venv/bin/python scripts/search_cli.py "aggressive growling distorted bass" -k 4
