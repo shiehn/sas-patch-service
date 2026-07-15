@@ -71,6 +71,34 @@ Within noise of each other on 34 queries → **the blind listening A/B is the de
 Query either config: `SPS_CLAP_MODEL=laion/larger_clap_general SPS_INDEX_DIR=index-general
 scripts/search_cli.py "..." --template "{q}"` (model and index dir must always pair).
 
+### Integration groundwork (2026-07-15, later same day)
+
+**Shuffle design (S&S 🎲 button over retrieval):** temperature-weighted sampling
+WITHOUT replacement from the semantic top-N (~16, temp ≈ 0.3), excluding
+already-tried patches — never a revert to random, never a rigid next-best descent
+(raw neighbors are near-clones; MMR + sampling keeps variety relevant). This is the
+same idiom as the SDK's existing `pickTopKWeighted` (semantic-match.ts). Degradation:
+no description / no index → today's random behavior; every applied candidate still
+lands in sound history (with real names) for "go back" recovery.
+
+**CLAP text tower → ONNX** (`scripts/export_text_onnx.py`; legacy exporter —
+dynamo graphs trip `quantize_dynamic` shape inference):
+
+| Variant | Size | Cosine vs torch | Single query (CPU) |
+|---|---|---|---|
+| fp32 | 501 MB | **1.00000 (exact)** | 6.2 ms |
+| int8 | 126 MB | 0.988–0.994 | 3.7 ms |
+
+fp32 is the gateway-endpoint answer (deps: `onnxruntime` + `tokenizers` + model file;
+no torch server-side). int8 reserved for a possible future in-app path; fp16
+conversion hit onnxconverter Cast-node type errors — parked, not needed.
+
+**Client index pack** (`scripts/export_client_pack.py` → `data/client-pack/`,
+**36.9 MB**): manifest + per-patch rows (fxp **content sha256** for intersection
+against the user's locally-installed Surge library, real names/authors, per-probe
+observation indices) + raw little-endian Float32 vector files readable directly into
+`Float32Array` — no numpy on the client.
+
 ### POC session stats
 Whole pipeline (proposal → working retrieval) stood up in one session; corpus build
 end-to-end on laptop: render 8.3 min + embed ~9 min per model; $0 spent, no API calls.
