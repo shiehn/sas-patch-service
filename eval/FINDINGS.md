@@ -134,6 +134,16 @@ through the identical gates so random-vs-seeded is settled by campaign metrics, 
 argument. Anchors are for gating/steering only — retrieval stays open-vocabulary.
 Details in the proposal §6.2.
 
+### Anchor-conditioned seeding (2026-07-15, Steve's refinement)
+Campaign parent selection = the anchor's top-k nearest patches in the existing index
+(retrieval doubles as seed discovery). Live demo: "muted trumpet with a harmon mute"
+peaks at ~0.58 against Flute/Clarinet/brassy leads → a SPARSE anchor, ideal campaign
+target; well-covered anchors (0.7+) skip generation entirely — the anchor vocabulary
+self-prioritizes by need. Identity control while deviating: CLAP-to-anchor fitness
+(off-anchor offspring die), identity-core parameter analysis (low variance across
+exemplars = preserve; high variance = explore), within-anchor crossover. Recorded in
+proposal §6.2 as the parent-selection policy.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →
