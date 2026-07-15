@@ -123,6 +123,17 @@ misfiles; a category mask would have hidden them. Consequences:
    UNDERSTATES true quality. GATE 1 rests on the blind listening A/B (+ self-retrieval
    sanity), as the proposal's evaluation section already prescribed.
 
+### Phase-1 generation strategy review (2026-07-15)
+Compared a "brute-force random patches + CLAP vocabulary-threshold filter" proposal
+against the plan. Verdict: keep **seeded mutation + CLAP-guided evolution** primary
+(synth1B1: random sampling = perceptually clumped junk; steering > filtering for the
+same CLAP compute), but adopt four refinements into the gate stack: category-clarity
+margin (best−mean anchor similarity), negative-anchor contrast set, prompt-ensembled
+anchors, cluster-then-caption vocabulary growth. Plus a ~50k **random-arm control**
+through the identical gates so random-vs-seeded is settled by campaign metrics, not
+argument. Anchors are for gating/steering only — retrieval stays open-vocabulary.
+Details in the proposal §6.2.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →
