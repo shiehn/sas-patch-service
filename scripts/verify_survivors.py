@@ -43,8 +43,16 @@ def verify(anchor_id: str, embedder, quiet: bool = False) -> list:
     vectors = np.load(DATA_DIR / "anchor_vectors.npz", allow_pickle=False)
     anchor_ids = [str(x) for x in vectors["anchor_ids"]]
     anchor_vecs = vectors["anchor_vecs"]
-    anchor_vec = anchor_vecs[anchor_ids.index(anchor_id)]
     negative_vecs = vectors["negative_vecs"]
+    if anchor_id in anchor_ids:
+        anchor_vec = anchor_vecs[anchor_ids.index(anchor_id)]
+    else:
+        # campaign predates the current vocabulary — rebuild its anchor vector
+        # from the text stored in its own manifest (prompt-ensembled)
+        templates = ["this is the sound of {a}", "{a}", "a {a} sound played on a synthesizer"]
+        ens = embedder.embed_text([t.format(a=manifest["anchor_text"]) for t in templates])
+        anchor_vec = np.asarray(ens).mean(axis=0)
+        anchor_vec /= np.linalg.norm(anchor_vec) + 1e-9
     pooled = np.load(INDEX / "pooled.npy")
 
     if not quiet:
@@ -97,6 +105,34 @@ def verify(anchor_id: str, embedder, quiet: bool = False) -> list:
         if not quiet:
             print(f"{s['rank']:>2} {rid:<34} {anchor_sims[best_i]:>7.3f} {probe_ids[best_i]:<15} "
                   f"{clarity:>8.3f} {neg_delta:>6.3f} {novelty:>8.3f} {verdict}")
+
+    # ---- quality judges (factory-calibrated aesthetics + optional LLM judge) ----
+    baseline_path = DATA_DIR / "aesthetics_baseline.json"
+    if results and baseline_path.exists():
+        from sps.aesthetics import audiobox_scores, clap_quality_contrast
+        from sps import judge as llm_judge
+
+        pct = json.loads(baseline_path.read_text())["percentiles"]
+        ab = audiobox_scores([r["listen"] for r in results])
+        use_judge = os.environ.get("SPS_JUDGE") == "1" and llm_judge.available()
+        for r, scores in zip(results, ab):
+            r["aesthetics"] = {k: round(v, 3) for k, v in scores.items()}
+            emb = embedder.embed_audio([__import__("soundfile").read(r["listen"], dtype="float32")[0]])
+            r["clap_contrast"] = round(float(clap_quality_contrast(embedder, emb)[0]), 4)
+            r["gates"]["aes_pq"] = scores["PQ"] >= pct["PQ"]["p25"]
+            r["gates"]["aes_ce"] = scores["CE"] >= pct["CE"]["p25"]
+            r["gates"]["clean"] = r["clap_contrast"] >= pct["clap_contrast"]["p25"]
+            if use_judge:
+                verdict = llm_judge.judge_clip(r["listen"], manifest["anchor_text"])
+                if verdict is not None:
+                    r["llm_judge"] = verdict
+                    r["gates"]["judge"] = bool(verdict["keep"])
+            r["verdict"] = "PASS" if all(r["gates"].values()) else (
+                "fail:" + ",".join(k for k, v in r["gates"].items() if not v))
+        if not quiet:
+            passing = sum(1 for r in results if r["verdict"] == "PASS")
+            print(f"\nwith quality gates (factory-p25 floors"
+                  f"{' + LLM judge' if use_judge else ''}): {passing}/{len(results)} PASS")
 
     (camp_dir / "verification.json").write_text(json.dumps(results, indent=2))
     return results

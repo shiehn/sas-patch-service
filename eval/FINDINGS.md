@@ -194,6 +194,26 @@ threshold (clarity, negΔ, aesthetics, future LLM-judge) gets calibrated against
 Steve's listening votes before any scale-up. Corpus KPI stays "does a producer say
 GREAT more often" — never counts.
 
+### Depth-over-breadth build-out (2026-07-15, latest)
+- **Anchor vocabulary v2** (`eval/anchors_v2.json`): 126 core anchors DENSE in
+  electronic sound design (32 bass shades, 22 pads, dub/garage/rave stabs, textures)
+  in producer language; the v1 acoustic-imitation set demoted to a 24-anchor
+  research tier; taste-negatives added ("cheap general midi demo", "muddy rumble").
+  V2-core coverage vs the enlarged corpus: **19 empty / 60 sparse / 47 covered**.
+- **Quality judges wired into verification** (all factory-calibrated, never absolute):
+  AudioBox-Aesthetics PQ/CE floors at the factory 25th percentile
+  (`scripts/aesthetics_baseline.py`, 240-sample calibration, 44 s); CLAP
+  quality-contrast (PAM-style prompt pairs on existing embeddings — zero new model);
+  optional **Gemini LLM listening judge** (`sps/judge.py`, REST, key-optional,
+  SPS_JUDGE=1) with a producer rubric. Trumpet campaign re-verified: 7/8 pass with
+  the new floors (one culled — selection pressure rising as intended).
+- **Taste calibration loop** (`scripts/listen_survivors.py`): plays survivors,
+  records keep/reject votes with all metrics; `--calibrate` fits threshold floors
+  to the votes (best-accuracy split per metric). Steve's ear = the ground truth all
+  gates get tuned against.
+- Vector-store versioning fixed: anchor_vectors.npz always carries every tier;
+  verification of old campaigns falls back to embedding the manifest's own text.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →

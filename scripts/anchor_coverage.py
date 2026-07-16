@@ -41,12 +41,18 @@ def classify(score: float) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--top", type=int, default=3)
+    ap.add_argument("--vocab", default="anchors_v2.json")
+    ap.add_argument("--tier", default="core", help="core | research | all")
     args = ap.parse_args()
 
     from sps.clap_embed import ClapEmbedder
 
-    vocab = json.loads((REPO_ROOT / "eval" / "anchors_v1.json").read_text())
-    anchors = vocab["anchors"]
+    vocab = json.loads((REPO_ROOT / "eval" / args.vocab).read_text())
+    all_anchors = vocab["anchors"]
+    # report/campaign-target list respects --tier; the vector store always carries
+    # EVERY anchor so verification of any campaign keeps working across tiers
+    anchors = [a for a in all_anchors
+               if args.tier == "all" or a.get("tier", "core") == args.tier]
     templates = vocab["templates"]
 
     pooled = np.load(INDEX / "pooled.npy")
@@ -57,13 +63,15 @@ def main() -> None:
     embedder = ClapEmbedder(device="cpu")
 
     # prompt-ensembled anchor vectors: embed every (template × anchor), average per anchor
-    texts = [t.format(a=a["text"]) for a in anchors for t in templates]
+    texts = [t.format(a=a["text"]) for a in all_anchors for t in templates]
     flat = np.zeros((len(texts), 512), dtype=np.float32)
     batch = 64
     for i in range(0, len(texts), batch):
         flat[i:i + batch] = embedder.embed_text(texts[i:i + batch])
-    per_anchor = flat.reshape(len(anchors), len(templates), 512).mean(axis=1)
-    per_anchor /= np.linalg.norm(per_anchor, axis=1, keepdims=True) + 1e-9
+    all_vecs = flat.reshape(len(all_anchors), len(templates), 512).mean(axis=1)
+    all_vecs /= np.linalg.norm(all_vecs, axis=1, keepdims=True) + 1e-9
+    vec_by_id = {a["id"]: v for a, v in zip(all_anchors, all_vecs)}
+    per_anchor = np.stack([vec_by_id[a["id"]] for a in anchors]) if anchors else all_vecs[:0]
 
     # negatives (for later gates; embedded and stored alongside)
     neg_texts = [t.format(a=n) for n in vocab["negatives"] for t in templates]
@@ -106,8 +114,8 @@ def main() -> None:
     (DATA_DIR / "anchor_coverage.json").write_text(json.dumps(out, indent=2))
     np.savez(
         DATA_DIR / "anchor_vectors.npz",
-        anchor_ids=np.array([a["id"] for a in anchors]),
-        anchor_vecs=per_anchor.astype(np.float32),
+        anchor_ids=np.array([a["id"] for a in all_anchors]),
+        anchor_vecs=all_vecs.astype(np.float32),
         negative_texts=np.array(vocab["negatives"]),
         negative_vecs=negatives.astype(np.float32),
     )
