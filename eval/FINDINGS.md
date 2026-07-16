@@ -312,6 +312,17 @@ to NEW sparse territory and bigger leaps (e.g. LLM-judge-as-fitness once a key
 exists), not to re-fighting lost families. r3 (transient-only) still completes as
 the unconfounding data point.
 
+### LLM-judge validation (2026-07-16): NO gate slot — the taste gap stays human
+Gemini judged Steve's 29 taste-voted clips (key fetched from the Fly machine):
+**79% agreement vs 76% always-keep base rate** — indistinguishable. The judge kept
+28/29 (Steve: 22/29) and missed 6 of his 7 rejects, all in the lenient direction —
+it measures "competent patch?" (true for every gate-passer) rather than "would
+Steve keep it?". Third null in a row (semantic metrics, quality metrics, LLM
+judge): within the gate-passing population, no automated signal captures the
+remaining taste variance. Rubric iteration possible (harsher framing, few-shot on
+his rejects) but expectations low; the blind A/B remains the only binding taste
+instrument. Validation rows: data/judge_validation.json.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →
