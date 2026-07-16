@@ -39,8 +39,11 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--anchors", default="", help="comma list overrides class selection")
     ap.add_argument("--tag", default="", help="campaign dir suffix (retry rounds)")
-    ap.add_argument("--profile", default="default", choices=["default", "transient"],
-                    help="transient: fitness = dominant+staccato probes, FX-weighted mutation")
+    ap.add_argument("--profile", default="default",
+                    choices=["default", "transient", "transient-only"],
+                    help="transient: dual-probe fitness + FX-weighted mutation; "
+                         "transient-only: dual-probe fitness, STANDARD mutation "
+                         "(unconfounds the two levers)")
     args = ap.parse_args()
 
     coverage = json.loads((DATA_DIR / "anchor_coverage.json").read_text())
@@ -98,10 +101,11 @@ def main() -> None:
                   flush=True)
             fitness_probes = None
             mutation = None
+            if args.profile in ("transient", "transient-only"):
+                fitness_probes = [entry["dominant_probe"], "staccato-v1"]
             if args.profile == "transient":
                 from sps.params import MutationConfig
 
-                fitness_probes = [entry["dominant_probe"], "staccato-v1"]
                 mutation = MutationConfig(group_weights={"FX": 3.0})
             campaign = Campaign(
                 CampaignConfig(

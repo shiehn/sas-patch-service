@@ -36,6 +36,7 @@ def safe_id(pid: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--per-anchor", type=int, default=3)
+    ap.add_argument("--dirs", default="", help="comma list of campaign dir names (default: all)")
     ap.add_argument("--dedup-cos", type=float, default=0.97)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -55,10 +56,14 @@ def main() -> None:
     embedder = ClapEmbedder()
     absorbed, skipped_dup, skipped_have = [], 0, 0
 
+    only_dirs = set(args.dirs.split(",")) if args.dirs else None
     for ver_path in sorted((DATA_DIR / "campaigns").glob("*/verification.json")):
-        anchor_id = ver_path.parent.name
+        if only_dirs is not None and ver_path.parent.name not in only_dirs:
+            continue
+        dir_name = ver_path.parent.name
         results = [r for r in json.loads(ver_path.read_text()) if r["verdict"] == "PASS"]
         results.sort(key=lambda r: r.get("fitness", -1), reverse=True)
+        anchor_id = results[0].get("anchor_id", dir_name) if results else dir_name
         meta = anchor_meta.get(anchor_id, {})
 
         kept_embs: list = []
