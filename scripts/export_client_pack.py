@@ -35,6 +35,17 @@ OUT = DATA_DIR / "client-pack"
 
 
 def main() -> None:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--curated", default="",
+                    help="path to curated_ship_list.json: generated patches NOT in its "
+                         "generated_patch_ids are excluded from the pack (human patches always ship)")
+    args = ap.parse_args()
+    allow_generated = None
+    if args.curated:
+        curated = json.loads(Path(args.curated).read_text())
+        allow_generated = set(curated["generated_patch_ids"])
+
     OUT.mkdir(parents=True, exist_ok=True)
     pooled = np.load(INDEX / "pooled.npy").astype("<f4")
     rows = [json.loads(l) for l in (INDEX / "pooled.jsonl").read_text().splitlines()]
@@ -45,6 +56,21 @@ def main() -> None:
     for l in (DATA_DIR / "corpus.jsonl").read_text().splitlines():
         r = json.loads(l)
         corpus[r["id"]] = r
+
+    if allow_generated is not None:
+        keep_mask = [not r["id"].startswith("generated/") or r["id"] in allow_generated
+                     for r in rows]
+        rows = [r for r, k in zip(rows, keep_mask) if k]
+        import numpy as _np
+        pooled = pooled[_np.array(keep_mask)]
+        kept_obs = [i for r in rows for i in r["obs_idx"]]
+        # remap observation indices into the filtered obs matrix
+        remap = {old: new for new, old in enumerate(kept_obs)}
+        obs = obs[kept_obs]
+        obs_rows = [obs_rows[old] for old in kept_obs]
+        for r in rows:
+            r["obs_idx"] = [remap[i] for i in r["obs_idx"]]
+        print(f"curated: {sum(1 for k in keep_mask if not k)} generated patches excluded")
 
     t0 = time.time()
     out_rows = []
