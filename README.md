@@ -102,34 +102,72 @@ cmake -S third_party/surge -B third_party/surge/ignore/bpy \
 cmake --build third_party/surge/ignore/bpy --parallel --target surgepy
 ```
 
-## Run the pipeline
+## Run the pipeline — retrieval
 
 ```bash
 # ingest the in-box Surge library (3,008 patches) into data/corpus.jsonl
 .venv/bin/python scripts/ingest_inbox.py
 
-# optional, Signals & Sorcery development only (needs ../sas-app checkout):
-# converts the app's bundled Tracktion-wrapped presets to .fxp and verifies the
-# wrapper ⇄ fxp equivalence both ways
+# optional, Signals & Sorcery development only (needs ../sas-app checkout)
 .venv/bin/python scripts/ingest_bundled.py
 .venv/bin/python scripts/equivalence_check.py
 
-# render 4 probes per patch → data/renders/ (FLAC; ~8 min for 3.5k patches, 8 cores)
+# render probes → embed → search
 .venv/bin/python scripts/render_probes.py
-
-# embed every render with LAION-CLAP → data/index/ (~9 min on Apple-Silicon MPS)
 .venv/bin/python scripts/embed_clap.py
-
-# search!  --play auditions the top hit's best-matching probe render
 .venv/bin/python scripts/search_cli.py "glassy shimmering bell pluck" -k 8 --play
 
-# offline eval over the golden query set
+# offline eval + blind A/B (semantic vs random baseline)
 .venv/bin/python scripts/eval_golden.py -k 5
-
-# blind A/B listening test (semantic vs random baseline) → http://localhost:8765
-.venv/bin/python eval/listen_ab.py
-.venv/bin/python eval/listen_ab.py --report   # tally the votes
+.venv/bin/python eval/listen_ab.py            # → http://localhost:8765
+.venv/bin/python eval/listen_ab.py --report
 ```
+
+## Run the pipeline — generation (the corpus factory)
+
+Patches are *bred*, not just found. Campaigns are anchor-conditioned evolution:
+seeds come from the retrieval index itself (an anchor's nearest existing patches),
+children derive by `loadPatch(parent)` + parameter deltas (modulation routing and
+wavetables preserved), fitness is CLAP similarity to the prompt-ensembled anchor
+minus a negative-anchor penalty, and survivors face a gate stack calibrated on the
+factory corpus — never absolute thresholds.
+
+```bash
+# 1. score the anchor vocabulary against the index: covered / sparse / empty
+.venv/bin/python scripts/anchor_coverage.py            # eval/anchors_v2.json, core tier
+
+# 2. one campaign (~seconds) or a sweep over every under-covered anchor
+.venv/bin/python scripts/run_campaign.py pad-dub-chord --pop 40 --gens 12
+.venv/bin/python scripts/run_sweep.py --pop 40 --gens 12
+#    retry rounds with transient-aware fitness + FX-weighted mutation:
+.venv/bin/python scripts/run_sweep.py --tag r2 --profile transient --anchors <ids>
+
+# 3. verification: full probe renders + gates (objective, clarity margin,
+#    negative contrast, novelty-vs-index, AudioBox/CLAP quality floors at
+#    factory percentiles; optional Gemini listening judge via SPS_JUDGE=1)
+.venv/bin/python scripts/verify_survivors.py pad-dub-chord
+.venv/bin/python scripts/reverify_all.py               # after gate changes
+
+# 4. human loops: taste votes calibrate thresholds; blind A/B decides shipping
+.venv/bin/python scripts/listen_survivors.py --limit 30 && \
+.venv/bin/python scripts/listen_survivors.py --calibrate
+.venv/bin/python eval/listen_ab.py --mode gate2        # generated vs human, blinded
+
+# 5. absorb winners into the corpus; ship a curated pack
+.venv/bin/python scripts/absorb_survivors.py --per-anchor 3
+.venv/bin/python scripts/embed_clap.py && .venv/bin/python scripts/export_client_pack.py \
+  --curated data/curated_ship_list.json
+.venv/bin/python scripts/build_index_pack.py --version N
+
+# extras: random-generation control arm; Gemini captions (needs GEMINI_API_KEY)
+.venv/bin/python scripts/run_random_arm.py --count 800
+.venv/bin/python scripts/caption_corpus.py --limit 100
+```
+
+Ground rules baked into the factory: **depth over breadth** (the anchor vocabulary
+is dense in electronic sound design; acoustic imitations are a research tier), no
+categorical filtering anywhere in retrieval, generated content ships only after a
+blind generated-vs-human A/B — losing families stay in the lab.
 
 Model/index variants for bake-offs (model and index dir must always pair):
 
