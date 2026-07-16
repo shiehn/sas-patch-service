@@ -48,8 +48,20 @@ def safe_id(pid: str) -> str:
     return pid.replace("/", "__").replace(" ", "_")
 
 
-def build_pairs():
-    golden = json.loads((REPO_ROOT / "eval" / "golden_queries.json").read_text())["queries"]
+def build_pairs(mode: str = "gate1"):
+    if mode == "gate2":
+        coverage = json.loads((DATA_DIR / "anchor_coverage.json").read_text())
+        have_gen = set()
+        for l in (DATA_DIR / "corpus.jsonl").read_text().splitlines():
+            r = json.loads(l)
+            if r.get("source") == "generated" and "campaign" in r:
+                have_gen.add(r["campaign"].get("anchor_id"))
+        golden = [{"id": a["id"], "text": a["text"], "role": a["role"]}
+                  for a in coverage["anchors"] if a["id"] in have_gen]
+        random.Random(20260716).shuffle(golden)
+        golden = golden[:40]
+    else:
+        golden = json.loads((REPO_ROOT / "eval" / "golden_queries.json").read_text())["queries"]
     pooled = np.load(INDEX / "pooled.npy")
     rows = [json.loads(l) for l in (INDEX / "pooled.jsonl").read_text().splitlines()]
     obs = np.load(INDEX / "obs.npy")
@@ -70,7 +82,7 @@ def build_pairs():
     pairs = []
     for qi, (q, qv) in enumerate(zip(golden, q_vecs)):
         sims = pooled @ qv
-        cand = np.argsort(-sims)[:40]
+        cand = np.argsort(-sims)[:200]
         scored = []
         for p in cand:
             r = rows[p]
@@ -80,21 +92,32 @@ def build_pairs():
         scored.sort(key=lambda t: -t[0])
         semantic = [entry(r, bp) for _, r, bp in scored[:5]]
 
-        subs = ROLE_TO_CATEGORY.get(q.get("role", ""), [])
-        pool = [r for r in rows if any(s.lower() in r["category"].lower() for s in subs)] or rows
-        baseline = [entry(r, None) for r in rng.sample(pool, min(5, len(pool)))]
+        if mode == "gate2":
+            # generated pool vs human pool — each side is its pool's SEMANTIC best;
+            # in tallies, 'semantic' = the generated side, 'baseline' = human side
+            gen = [(sc, r, bp) for sc, r, bp in scored if r["source"] == "generated"][:5]
+            hum = [(sc, r, bp) for sc, r, bp in scored if r["source"] != "generated"][:5]
+            semantic = [entry(r, bp) for _, r, bp in gen]
+            baseline = [entry(r, bp) for _, r, bp in hum]
+            if not semantic or not baseline:
+                continue  # this query can't field both pools — skip the pair
+        else:
+            subs = ROLE_TO_CATEGORY.get(q.get("role", ""), [])
+            pool = [r for r in rows if any(s.lower() in r["category"].lower() for s in subs)] or rows
+            baseline = [entry(r, None) for r in rng.sample(pool, min(5, len(pool)))]
 
         flip = rng.random() < 0.5
         pairs.append({
-            "qi": qi, "id": q["id"], "text": q["text"], "role": q.get("role", ""),
+            "qi": len(pairs), "id": q["id"], "text": q["text"], "role": q.get("role", ""),
             "sideA": baseline if flip else semantic,
             "sideB": semantic if flip else baseline,
             "a_is": "baseline" if flip else "semantic",
+            "mode": mode,
         })
     return pairs
 
 
-PAGE = """<!doctype html><meta charset="utf-8"><title>GATE 1 — blind A/B</title>
+PAGE = """<!doctype html><meta charset="utf-8"><title>Blind A/B</title>
 <style>
  body{font:15px -apple-system,sans-serif;margin:2rem auto;max-width:960px;padding:0 1rem;background:#111;color:#eee}
  h2{font-weight:600} .q{color:#7fd4ff;font-size:1.25rem}
@@ -103,7 +126,7 @@ PAGE = """<!doctype html><meta charset="utf-8"><title>GATE 1 — blind A/B</titl
  button{font-size:1rem;padding:.55rem 1.2rem;margin:.4rem .4rem 0 0;border-radius:8px;border:0;cursor:pointer;background:#2d6cdf;color:#fff}
  button.alt{background:#444} .tally{color:#9f9;margin-left:1rem} .idx{color:#888}
 </style>
-<h2>GATE 1 — which set fits the description better? <span class="tally" id="tally"></span></h2>
+<h2>Blind A/B — which set fits the description better? <span class="tally" id="tally"></span></h2>
 <div class="q" id="qtext"></div><div class="idx" id="idx"></div>
 <div class="cols">
  <div class="col"><h3>Side A</h3><div id="a"></div></div>
@@ -182,18 +205,22 @@ class Handler(BaseHTTPRequestHandler):
         winner = "tie" if v == "tie" else (p["a_is"] if v == "A" else
                                            ("semantic" if p["a_is"] == "baseline" else "baseline"))
         with open(VOTES, "a") as f:
-            f.write(json.dumps({"query_id": p["id"], "vote_side": v, "winner": winner}) + "\n")
+            f.write(json.dumps({"query_id": p["id"], "vote_side": v, "winner": winner,
+                                "mode": p.get("mode", "gate1")}) + "\n")
         self._json({"ok": True})
 
     def log_message(self, *a):  # quiet
         pass
 
 
-def tally():
+def tally(mode: str = None):
     t = {"semantic": 0, "baseline": 0, "tie": 0}
     if VOTES.exists():
         for l in VOTES.read_text().splitlines():
-            t[json.loads(l)["winner"]] += 1
+            row = json.loads(l)
+            if mode and row.get("mode", "gate1") != mode:
+                continue
+            t[row["winner"]] += 1
     return t
 
 
@@ -201,20 +228,24 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--mode", default="gate1", choices=["gate1", "gate2"],
+                    help="gate1: semantic vs random-category. gate2: generated vs human "
+                         "(both semantically retrieved; 'semantic' in tallies = generated side)")
     args = ap.parse_args()
 
     if args.report:
-        t = tally()
-        decided = t["semantic"] + t["baseline"]
-        print(json.dumps(t, indent=2))
-        if decided:
-            rate = t["semantic"] / decided
-            print(f"semantic win rate (decided): {rate:.1%}  → GATE 1 (≥70%): "
-                  f"{'PASS' if rate >= 0.7 else 'FAIL'}")
+        for mode, label, target in (("gate1", "GATE 1 semantic-vs-random (≥70%)", 0.70),
+                                    ("gate2", "GATE 2 generated-vs-human (≥40%)", 0.40)):
+            t = tally(mode)
+            decided = t["semantic"] + t["baseline"]
+            if decided + t["tie"] == 0:
+                continue
+            rate = (t["semantic"] / decided) if decided else 0.0
+            print(f"{label}: {t}  win-rate {rate:.1%} → {'PASS' if rate >= target else 'FAIL'}")
         return
 
-    print("building pairs (embedding golden queries once)...")
-    Handler.pairs = build_pairs()
+    print(f"building pairs (mode={args.mode})...")
+    Handler.pairs = build_pairs(args.mode)
     print(f"ready: {len(Handler.pairs)} queries → http://localhost:{args.port}")
     ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
 
