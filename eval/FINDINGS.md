@@ -252,6 +252,32 @@ slightly HIGHER on anchor-similarity/clarity) and not the quality judges
 4. Error bars are wide (7 rejects); more votes sharpen this but don't change the
    structural conclusion.
 
+### GATE 2 verdict (2026-07-16): FAIL overall — PASS in pads
+Blind A/B, generated-vs-human, both sides semantic top-5 for the same anchor,
+40 pairs, Steve voting: **generated 11 / human 22 / tie 6 → 33.3% win rate,
+below the 40% parity bar. Pack v2 (wholesale) does NOT ship.** The gate did its
+job — the corpus factory's numbers said ceiling-beating; blind ears said
+not-yet-parity overall.
+
+**The family breakdown is the real finding:**
+- **Generated WON: 7 of 13 decided pad pairs (54% — above parity on its own)**
+  plus dark-ambience/rain textures and glass/sync leads: dub-chord pad,
+  sidechain-pump pad, ambient-eno, drone-om, underwater, organ-breath, glass
+  pad. Evolution excels where sounds are evolving/atmospheric — character over
+  precision.
+- **Human WON: keys (rhodes/wurli/italo), percussion & FX one-shots (kick, zap,
+  sweeps), iconic references (juno-warm, detroit strings, vocoder, theremin),
+  granular/vinyl textures** — sounds needing transient precision, physical-model
+  character, or effects polish.
+- Interpretation: the machine already beats human sound design in the slow-
+  evolving families and loses where precise engineering or an iconic reference
+  defines the sound. Iteration targets: FX-chain mutation emphasis, transient-
+  focused probes, bigger budgets for the loss families.
+
+Ship-path options recorded for Steve's call: (A) curated subset — ship ONLY the
+won/tied anchors' patches (blind votes = the curation; ~17 anchors); (B) hold all
+generated content, iterate, re-gate; (C) human-corpus-only permanently.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →
