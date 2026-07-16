@@ -29,31 +29,27 @@ from sps import DATA_DIR
 INDEX = DATA_DIR / os.environ.get("SPS_INDEX_DIR", "index")
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("anchor_id")
-    ap.add_argument("--play", action="store_true", help="afplay the #1 survivor's best probe")
-    args = ap.parse_args()
-
+def verify(anchor_id: str, embedder, quiet: bool = False) -> list:
+    """Render every survivor of a campaign through ALL probes, compute v1 gate
+    metrics, write verification.json, and return the per-survivor results."""
     import soundfile as sf
 
-    from sps.clap_embed import ClapEmbedder
     from sps.probes import PROBES, SAMPLE_RATE
     from sps.render import probe_stats, render_probe, to_mono_16bit_ok
 
-    camp_dir = DATA_DIR / "campaigns" / args.anchor_id
+    camp_dir = DATA_DIR / "campaigns" / anchor_id
     manifest = json.loads((camp_dir / "campaign.json").read_text())
 
     vectors = np.load(DATA_DIR / "anchor_vectors.npz", allow_pickle=False)
     anchor_ids = [str(x) for x in vectors["anchor_ids"]]
     anchor_vecs = vectors["anchor_vecs"]
-    anchor_vec = anchor_vecs[anchor_ids.index(args.anchor_id)]
+    anchor_vec = anchor_vecs[anchor_ids.index(anchor_id)]
     negative_vecs = vectors["negative_vecs"]
     pooled = np.load(INDEX / "pooled.npy")
 
-    embedder = ClapEmbedder()
-    print(f'verifying {len(manifest["survivors"])} survivors of "{manifest["anchor_text"]}"\n')
-    print(f"{'#':>2} {'id':<34} {'anchor':>7} {'probe':<15} {'clarity':>8} {'negΔ':>6} {'novelty':>8} verdict")
+    if not quiet:
+        print(f'verifying {len(manifest["survivors"])} survivors of "{manifest["anchor_text"]}"\n')
+        print(f"{'#':>2} {'id':<34} {'anchor':>7} {'probe':<15} {'clarity':>8} {'negΔ':>6} {'novelty':>8} verdict")
 
     results = []
     for s in manifest["survivors"]:
@@ -71,7 +67,8 @@ def main() -> None:
                 waves.append(mono)
                 probe_ids.append(probe.id)
         if not waves:
-            print(f"   {rid:<34} ALL PROBES SILENT — reject")
+            if not quiet:
+                print(f"   {rid:<34} ALL PROBES SILENT — reject")
             continue
         embs = embedder.embed_audio(waves)
         anchor_sims = embs @ anchor_vec
@@ -92,15 +89,28 @@ def main() -> None:
             "novel": novelty < 0.985,
         }
         verdict = "PASS" if all(gates.values()) else "fail:" + ",".join(k for k, v in gates.items() if not v)
-        results.append({**s, "anchor_best": round(float(anchor_sims[best_i]), 4),
+        results.append({**s, "anchor_id": anchor_id, "anchor_best": round(float(anchor_sims[best_i]), 4),
                         "best_probe": probe_ids[best_i], "clarity": round(clarity, 4),
                         "neg_delta": round(neg_delta, 4), "novelty_max_cos": round(novelty, 4),
                         "gates": gates, "verdict": verdict,
                         "listen": str(render_dir / f"{probe_ids[best_i]}.flac")})
-        print(f"{s['rank']:>2} {rid:<34} {anchor_sims[best_i]:>7.3f} {probe_ids[best_i]:<15} "
-              f"{clarity:>8.3f} {neg_delta:>6.3f} {novelty:>8.3f} {verdict}")
+        if not quiet:
+            print(f"{s['rank']:>2} {rid:<34} {anchor_sims[best_i]:>7.3f} {probe_ids[best_i]:<15} "
+                  f"{clarity:>8.3f} {neg_delta:>6.3f} {novelty:>8.3f} {verdict}")
 
     (camp_dir / "verification.json").write_text(json.dumps(results, indent=2))
+    return results
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("anchor_id")
+    ap.add_argument("--play", action="store_true", help="afplay the #1 survivor's best probe")
+    args = ap.parse_args()
+
+    from sps.clap_embed import ClapEmbedder
+
+    results = verify(args.anchor_id, ClapEmbedder())
     passing = [r for r in results if r["verdict"] == "PASS"]
     print(f"\n{len(passing)}/{len(results)} survivors pass v1 gates")
     if results:
