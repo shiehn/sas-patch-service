@@ -292,6 +292,26 @@ generated content, iterate, re-gate; (C) human-corpus-only permanently.
 - Meta-lesson for the factory: mutation pressure belongs where exemplar variance
   lives (the sigma map), not where we *wish* improvement came from.
 
+### GATE 1: PASSED 97.4% (2026-07-16) — the product bet, certified
+Steve's blind semantic-vs-random session: 37 semantic / 1 baseline / 4 tie over 42
+golden queries — far above the ≥70% bar. Semantic retrieval over the human corpus
+(the shipped Phase-0.5 product) is formally validated against the legacy
+random-within-category baseline by its own designer, blinded.
+
+### r2 re-listen (2026-07-16): ZERO flips — metric gains below the ear's noise floor
+All 5 r2-improved anchors (kick, rhodes, dnb-pad, granular-cloud, heartbeat) still
+lost to human patches in blind A/B. +0.02–0.03 anchor-cos and higher gate-pass
+counts did not move human preference — consistent with the taste-calibration null
+result. GATE-2 tally unchanged (33.3%); ship list stays at 43.
+
+**Strategic conclusion (depth-over-breadth applied to generation):** evolution's
+comparative advantage is TERRITORY, not head-to-head combat. It won originally
+where humans were weak/absent (pads 54%, sparse/empty anchors) and cannot close
+strong-human families with incremental metric gains. Future generation budget goes
+to NEW sparse territory and bigger leaps (e.g. LLM-judge-as-fitness once a key
+exists), not to re-fighting lost families. r3 (transient-only) still completes as
+the unconfounding data point.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →
