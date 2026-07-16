@@ -144,6 +144,29 @@ self-prioritizes by need. Identity control while deviating: CLAP-to-anchor fitne
 exemplars = preserve; high variance = explore), within-anchor crossover. Recorded in
 proposal §6.2 as the parent-selection policy.
 
+### Phase 1 vertical slice LIVE (2026-07-15) — first generation campaign
+The full anchor-conditioned evolution loop runs end-to-end:
+
+- **Parameter layer** (`sps/params.py`): 698 mutable params across OSC/MIX/FILTER/
+  ENV/LFO/FX (GLOBAL excluded); children derive by loadPatch(parent)+value deltas
+  (the ~700 params do NOT carry mod routings/wavetables — deltas preserve them);
+  osc-type guard maps the enum by display-probing and forbids Wavetable/Window/
+  Audio In (indices 2/7/4 at 1.3.4); exemplar-variance-scaled mutation.
+- **Anchor coverage scan** (116 anchors, prompt-ensembled): 24 covered / 52 sparse /
+  40 empty — the corpus is bass-rich (bass-wobble 0.717) and acoustic-imitation-poor.
+  Campaign targets are self-prioritizing.
+- **First campaign — "muted trumpet with a harmon mute"** (sparse, ceiling 0.562):
+  pop 24 × 8 generations = **10 seconds wall**. Best evolved anchor-similarity
+  **0.654 (beat the corpus ceiling by +0.09)**; fitness = anchor − 0.3·max(neg) held
+  back noise-drift (top mutant had neg 0.40 — the penalty is load-bearing).
+  Crossover produced 2/8 survivors. **8/8 survivors pass v1 gates** (objective,
+  clarity margin ~0.48, negative Δ ~0.28, novelty 0.93–0.96 < 0.985 dup threshold).
+- Cost math: ~10 s/campaign → all 92 sparse+empty anchors ≈ minutes, not hours.
+  Population/generation budgets have huge headroom before compute matters.
+- CLAP-says vs ear-says: the numbers claim "more muted-trumpet-like than anything
+  in the corpus"; the listening verdict (and GATE 2's blind A/B vs factory) remains
+  the binding quality bar. Aesthetics scoring (AudioBox/PAM) not yet in the gates.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →

@@ -27,13 +27,23 @@ def get_surgepy():
     return _surgepy
 
 
-def render_probe(fxp_path: str, probe: Probe) -> np.ndarray:
+def render_probe(
+    fxp_path: str,
+    probe: Probe,
+    param_delta: Optional[Dict[str, float]] = None,
+) -> np.ndarray:
     """Render one probe for one patch with a fresh synth (max isolation).
+    `param_delta` (evolution children) is applied on top of the loaded patch —
+    values only; the parent's modulation routing / wavetables are preserved.
     Returns float32 stereo array shape (2, n_samples)."""
     surgepy = get_surgepy()
     synth = surgepy.createSurge(SAMPLE_RATE)
     try:
         synth.loadPatch(fxp_path)
+        if param_delta:
+            from .params import SurgeParams
+
+            SurgeParams(synth).apply(param_delta)
         block_size = synth.getBlockSize()
         n_blocks = int(math.ceil(probe.total_sec * SAMPLE_RATE / block_size))
         buf = synth.createMultiBlock(n_blocks)
