@@ -51,6 +51,10 @@ class CampaignConfig:
     elite: int = 6
     rng_seed: int = 20260715
     neg_weight: float = NEG_WEIGHT
+    # multi-probe fitness: when set, candidates render EVERY listed probe and are
+    # scored on the normalized mean embedding (transient + phrase together)
+    fitness_probes: Optional[List[str]] = None
+    mutation: Optional["object"] = None  # sps.params.MutationConfig override
 
 
 def _probe_by_id(probe_id: str) -> Probe:
@@ -62,15 +66,20 @@ def _probe_by_id(probe_id: str) -> Probe:
 
 # ---- render worker (module-level for pickling) -----------------------------------
 
-def _eval_render(task: Tuple[str, Dict[str, float], str]) -> Tuple[Optional[np.ndarray], Dict[str, float]]:
-    fxp_path, delta, probe_id = task
+def _eval_render(task: Tuple[str, Dict[str, float], Tuple[str, ...]]) -> Tuple[Optional[List[np.ndarray]], Dict[str, float]]:
+    fxp_path, delta, probe_ids = task
     try:
-        audio = render_probe(fxp_path, _probe_by_id(probe_id), param_delta=delta or None)
-        stats = probe_stats(audio)
-        mono = to_mono_16bit_ok(audio)
-        if mono is None or stats["peak"] < 1e-5 or stats["activity"] < 0.05:
-            return None, stats
-        return mono, stats
+        monos: List[np.ndarray] = []
+        stats: Dict[str, float] = {}
+        for probe_id in probe_ids:
+            audio = render_probe(fxp_path, _probe_by_id(probe_id), param_delta=delta or None)
+            st = probe_stats(audio)
+            stats = st if not stats else stats  # keep first probe's stats for logging
+            mono = to_mono_16bit_ok(audio)
+            if mono is None or st["peak"] < 1e-5 or st["activity"] < 0.05:
+                return None, st  # ALL fitness probes must speak
+            monos.append(mono)
+        return monos, stats
     except Exception as e:  # noqa: BLE001 — a broken child just scores None
         return None, {"error": str(e)}
 
@@ -141,7 +150,7 @@ class Campaign:
                 self.params,
                 self._values_of(parent),
                 self.rng,
-                MutationConfig(),
+                self.config.mutation or MutationConfig(),
                 sigma_map=self.sigma_map,
                 allowed_osc=self.allowed_osc,
             )
@@ -163,20 +172,24 @@ class Campaign:
         todo = [ind for ind in individuals if ind.fitness is None]
         if not todo:
             return
-        tasks = [(ind.parent_fxp, ind.delta, self.config.probe_id) for ind in todo]
+        probe_ids = tuple(self.config.fitness_probes or [self.config.probe_id])
+        tasks = [(ind.parent_fxp, ind.delta, probe_ids) for ind in todo]
         renders = list(pool.map(_eval_render, tasks, chunksize=2))
 
         waves = []
         alive: List[Individual] = []
-        for ind, (mono, stats) in zip(todo, renders):
+        for ind, (monos, stats) in zip(todo, renders):
             ind.stats = stats
-            if mono is None:
+            if monos is None:
                 ind.fitness = -1.0  # silent/broken — evolutionary dead end
             else:
-                waves.append(mono)
+                waves.extend(monos)
                 alive.append(ind)
         if alive:
-            embs = self.embedder.embed_audio(waves)
+            flat = self.embedder.embed_audio(waves)
+            per = len(probe_ids)
+            embs = flat.reshape(len(alive), per, -1).mean(axis=1)
+            embs /= np.linalg.norm(embs, axis=1, keepdims=True) + 1e-9
             for ind, emb in zip(alive, embs):
                 ind.embedding = emb.astype(np.float32)
                 ind.anchor_cos = float(emb @ self.anchor_vec)
@@ -261,6 +274,7 @@ class Campaign:
                 "elite": self.config.elite,
                 "rng_seed": self.config.rng_seed,
                 "neg_weight": self.config.neg_weight,
+                "fitness_probes": list(self.config.fitness_probes or [self.config.probe_id]),
             },
             "history": self.history,
             "best_ever": round(best_ever.fitness or -1, 4) if best_ever else None,

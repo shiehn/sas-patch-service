@@ -75,4 +75,17 @@ PAD_CHORD = Probe(
     total_sec=8.0,
 )
 
-PROBES: Tuple[Probe, ...] = (BASS_RIFF, LOW_SUSTAIN, MID_PHRASE, PAD_CHORD)
+# v2 (2026-07-16): transient character across three registers — 90 ms gates expose
+# attack/click/decay precision that the phrase probes average away. Added for the
+# GATE-2 loss-family iteration (perc one-shots, keys). Older corpus entries simply
+# lack this observation; per-patch obs maps make mixed probe sets safe.
+STACCATO = Probe(
+    id="staccato-v1",
+    events=tuple(
+        _riff([(36, 118), (36, 74), (48, 118), (48, 74), (60, 112), (72, 104)],
+              start=0.0, step=0.5, gate=0.09)
+    ),
+    total_sec=4.5,
+)
+
+PROBES: Tuple[Probe, ...] = (BASS_RIFF, LOW_SUSTAIN, MID_PHRASE, PAD_CHORD, STACCATO)

@@ -97,7 +97,9 @@ def verify(anchor_id: str, embedder, quiet: bool = False) -> list:
             "novel": novelty < 0.985,
         }
         verdict = "PASS" if all(gates.values()) else "fail:" + ",".join(k for k, v in gates.items() if not v)
-        results.append({**s, "anchor_id": anchor_id, "anchor_best": round(float(anchor_sims[best_i]), 4),
+        results.append({**s, "anchor_id": manifest.get("anchor_id", anchor_id),
+                        "campaign_dir": anchor_id,
+                        "anchor_best": round(float(anchor_sims[best_i]), 4),
                         "best_probe": probe_ids[best_i], "clarity": round(clarity, 4),
                         "neg_delta": round(neg_delta, 4), "novelty_max_cos": round(novelty, 4),
                         "gates": gates, "verdict": verdict,

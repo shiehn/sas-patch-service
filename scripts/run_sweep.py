@@ -37,11 +37,19 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--classes", default="sparse,empty")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--anchors", default="", help="comma list overrides class selection")
+    ap.add_argument("--tag", default="", help="campaign dir suffix (retry rounds)")
+    ap.add_argument("--profile", default="default", choices=["default", "transient"],
+                    help="transient: fitness = dominant+staccato probes, FX-weighted mutation")
     args = ap.parse_args()
 
-    classes = set(args.classes.split(","))
     coverage = json.loads((DATA_DIR / "anchor_coverage.json").read_text())
-    targets = [a for a in coverage["anchors"] if a["class"] in classes]
+    if args.anchors:
+        wanted = set(args.anchors.split(","))
+        targets = [a for a in coverage["anchors"] if a["id"] in wanted]
+    else:
+        classes = set(args.classes.split(","))
+        targets = [a for a in coverage["anchors"] if a["class"] in classes]
     if args.limit:
         targets = targets[: args.limit]
 
@@ -67,7 +75,8 @@ def main() -> None:
     t0 = time.time()
     for n, entry in enumerate(targets, 1):
         anchor_id = entry["id"]
-        camp_dir = DATA_DIR / "campaigns" / anchor_id
+        dir_name = f"{anchor_id}-{args.tag}" if args.tag else anchor_id
+        camp_dir = DATA_DIR / "campaigns" / dir_name
         if (camp_dir / "campaign.json").exists():
             print(f"[{n}/{len(targets)}] {anchor_id}: already done, skipping", flush=True)
             continue
@@ -87,6 +96,13 @@ def main() -> None:
 
             print(f"[{n}/{len(targets)}] {anchor_id} ({entry['class']}, ceiling {entry['best_score']})",
                   flush=True)
+            fitness_probes = None
+            mutation = None
+            if args.profile == "transient":
+                from sps.params import MutationConfig
+
+                fitness_probes = [entry["dominant_probe"], "staccato-v1"]
+                mutation = MutationConfig(group_weights={"FX": 3.0})
             campaign = Campaign(
                 CampaignConfig(
                     anchor_id=anchor_id,
@@ -95,6 +111,8 @@ def main() -> None:
                     probe_id=entry["dominant_probe"],
                     population=args.pop,
                     generations=args.gens,
+                    fitness_probes=fitness_probes,
+                    mutation=mutation,
                 ),
                 anchor_vec=anchor_vec,
                 negative_vecs=negative_vecs,
@@ -103,7 +121,7 @@ def main() -> None:
                 workers=args.workers,
             )
             manifest = campaign.run()
-            results = verify(anchor_id, embedder, quiet=True)
+            results = verify(dir_name, embedder, quiet=True)
             passing = [r for r in results if r["verdict"] == "PASS"]
             best_anchor = max((s["anchor_cos"] for s in manifest["survivors"]), default=-1)
             beat = best_anchor > entry["best_score"]

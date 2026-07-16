@@ -140,6 +140,10 @@ class MutationConfig:
     int_step_prob: float = 0.35
     bool_flip_prob: float = 0.15
     osc_type_switch_prob: float = 0.06
+    # relative weight per control group when picking blocks to mutate; e.g.
+    # {"FX": 3.0} triples the chance FX blocks are touched (production-polish
+    # emphasis for the GATE-2 loss families)
+    group_weights: Optional[Dict[str, float]] = None
 
 
 def mutate_values(
@@ -156,9 +160,25 @@ def mutate_values(
         blocks.setdefault((spec.group, spec.entry), []).append(spec)
     block_keys = list(blocks.keys())
 
-    n_blocks = rng.randint(*config.groups_per_child)
+    n_blocks = min(rng.randint(*config.groups_per_child), len(block_keys))
+    if config.group_weights:
+        chosen: List[Tuple[str, int]] = []
+        pool = list(block_keys)
+        weights = [config.group_weights.get(k[0], 1.0) for k in pool]
+        for _ in range(n_blocks):
+            total = sum(weights)
+            roll = rng.random() * total
+            for j, w in enumerate(weights):
+                roll -= w
+                if roll <= 0:
+                    chosen.append(pool.pop(j))
+                    weights.pop(j)
+                    break
+        picked = chosen
+    else:
+        picked = rng.sample(block_keys, n_blocks)
     delta: Dict[str, float] = {}
-    for block_key in rng.sample(block_keys, min(n_blocks, len(block_keys))):
+    for block_key in picked:
         specs = blocks[block_key]
         n_params = min(rng.randint(*config.params_per_group), len(specs))
         for spec in rng.sample(specs, n_params):
