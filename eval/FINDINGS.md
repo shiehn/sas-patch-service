@@ -214,6 +214,26 @@ GREAT more often" — never counts.
 - Vector-store versioning fixed: anchor_vectors.npz always carries every tier;
   verification of old campaigns falls back to embedding the manifest's own text.
 
+### Away-mode chain results (2026-07-15/16 overnight)
+1. **Re-verify of all 92 v1 campaigns under the raised gates** (13 min): 424/736
+   survivors PASS (was ~89% under v1 gates). Culls: aes_pq 105, negative 101,
+   clean 78, aes_ce 67, clarity 12; the 134 'novel' failures are mostly siblings
+   of already-absorbed patches (artifact, not quality). reverify_summary.json =
+   the pack-v2 re-curation input.
+2. **V2-core deep sweep** (73 campaigns, pop 40 × 12 gens, 67 min): **70/73 beat
+   ceiling, 368 gate-passers under the STRICT stack.** Top gains all in electronic
+   territory: dark music box +0.21, sidechain-pump pad +0.20, funk clav +0.13,
+   berlin-dark pad +0.13, rave piano stab +0.13.
+3. **Random-arm control** (800 candidates, 2 min): 98% non-silent, **28.75%
+   pass the semantic/clean gates** (aes floors not applied — slight over-count),
+   mean anchor-cos 0.583 — random is BETTER per-candidate than synth1B1 implied
+   *when grammar-guarded*… BUT its passers collapse onto ~15 easy anchors of 126
+   (generic basses/plucks/chip leads). The clumping prediction manifests as
+   COVERAGE collapse, not silence: random cannot TARGET (zero dub-chord pads,
+   zero sidechain pads, zero imitative wins). Verdict: hybrid confirmed —
+   evolution fills designated gaps; random is a cheap wildcard harvester for
+   common families. Both arms now measurable per campaign.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →
