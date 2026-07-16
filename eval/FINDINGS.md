@@ -167,6 +167,23 @@ The full anchor-conditioned evolution loop runs end-to-end:
   in the corpus"; the listening verdict (and GATE 2's blind A/B vs factory) remains
   the binding quality bar. Aesthetics scoring (AudioBox/PAM) not yet in the gates.
 
+### Full sweep + absorption — THE LOOP IS CLOSED (2026-07-15, later)
+- **Sweep**: 91 campaigns (all sparse+empty anchors), 62 min, pop 32 × 10 gens.
+  **85/91 beat their corpus ceiling**; 658 gate-passing survivors. Biggest gains in
+  EMPTY anchors (pan flute +0.24, solo violin +0.22, harp +0.16). Steve's ear test
+  passed on the first campaign ("played the trumpet and it's GREAT"). Notable:
+  the hammond campaign gained similarity but went **0/8 on gates** — clarity/negative
+  gates rejected a whole campaign with no human involved.
+- **Absorption**: top-3 per anchor + intra-campaign dedup (≥0.97 cos) →
+  **193 generated patches** absorbed with campaign provenance; corpus now
+  **3,716 patches / 14,674 observations**; index pack v2 exported (38.9 MB, local).
+- **Closed-loop retrieval**: "airy pan flute" → generated top-3 (0.617 vs old
+  ceiling 0.445); "muted trumpet" → generated #1; "expressive solo violin" →
+  generated #1/#2/#4. Search finds gaps → evolution fills them → search serves them.
+- **Ship gate**: pack v2 does NOT ship until GATE 2 — blind A/B of generated vs
+  factory over golden queries (listen_ab.py) — passes. One heard anchor ≠ 193
+  vetted patches.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →
