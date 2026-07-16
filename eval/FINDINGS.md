@@ -184,6 +184,16 @@ The full anchor-conditioned evolution loop runs end-to-end:
   factory over golden queries (listen_ab.py) — passes. One heard anchor ≠ 193
   vetted patches.
 
+### Guiding principle (2026-07-15, Steve): DEPTH OVER BREADTH
+Not the EVERYTHING app — the goal is *truly awesome music*, and the house taste is
+electronic. Consequences for this pipeline: anchor vocabulary v2 goes DENSE in
+electronic sound-design territory (many shades of bass/pad/lead/texture, production
+language) and drops the acoustic-imitation checklist to research-only; absorption
+prefers top-1-per-anchor with stricter gates over corpus growth; every automated
+threshold (clarity, negΔ, aesthetics, future LLM-judge) gets calibrated against
+Steve's listening votes before any scale-up. Corpus KPI stays "does a producer say
+GREAT more often" — never counts.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →
