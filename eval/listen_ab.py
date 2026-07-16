@@ -48,7 +48,7 @@ def safe_id(pid: str) -> str:
     return pid.replace("/", "__").replace(" ", "_")
 
 
-def build_pairs(mode: str = "gate1"):
+def build_pairs(mode: str = "gate1", anchors: str = ""):
     if mode == "gate2":
         coverage = json.loads((DATA_DIR / "anchor_coverage.json").read_text())
         have_gen = set()
@@ -58,6 +58,9 @@ def build_pairs(mode: str = "gate1"):
                 have_gen.add(r["campaign"].get("anchor_id"))
         golden = [{"id": a["id"], "text": a["text"], "role": a["role"]}
                   for a in coverage["anchors"] if a["id"] in have_gen]
+        if anchors:
+            wanted = set(anchors.split(","))
+            golden = [g for g in golden if g["id"] in wanted]
         random.Random(20260716).shuffle(golden)
         golden = golden[:40]
     else:
@@ -214,13 +217,17 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def tally(mode: str = None):
-    t = {"semantic": 0, "baseline": 0, "tie": 0}
+    latest = {}
     if VOTES.exists():
         for l in VOTES.read_text().splitlines():
             row = json.loads(l)
-            if mode and row.get("mode", "gate1") != mode:
+            row_mode = row.get("mode", "gate1")
+            if mode and row_mode != mode:
                 continue
-            t[row["winner"]] += 1
+            latest[(row_mode, row["query_id"])] = row["winner"]  # last vote wins
+    t = {"semantic": 0, "baseline": 0, "tie": 0}
+    for winner in latest.values():
+        t[winner] += 1
     return t
 
 
@@ -228,6 +235,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--anchors", default="", help="gate2: restrict to these anchor ids")
     ap.add_argument("--mode", default="gate1", choices=["gate1", "gate2"],
                     help="gate1: semantic vs random-category. gate2: generated vs human "
                          "(both semantically retrieved; 'semantic' in tallies = generated side)")
@@ -245,7 +253,7 @@ def main() -> None:
         return
 
     print(f"building pairs (mode={args.mode})...")
-    Handler.pairs = build_pairs(args.mode)
+    Handler.pairs = build_pairs(args.mode, anchors=args.anchors)
     print(f"ready: {len(Handler.pairs)} queries → http://localhost:{args.port}")
     ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
 
