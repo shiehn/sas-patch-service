@@ -234,6 +234,24 @@ GREAT more often" — never counts.
    evolution fills designated gaps; random is a cheap wildcard harvester for
    common families. Both arms now measurable per campaign.
 
+### Taste calibration round 1 (2026-07-16) — an important NULL result
+Steve voted 29 gate-passing survivors: **22 keep / 7 reject (76% keep rate)**.
+No metric separates his keeps from rejects — not the semantic ones (rejects scored
+slightly HIGHER on anchor-similarity/clarity) and not the quality judges
+(PQ/CE/CU/PC/clap-contrast/novelty all at base-rate accuracy). Interpretation:
+1. The gate stack already removes everything objectively wrong BEFORE human ears —
+   within survivors, remaining preference lives in dimensions none of our judges
+   measure (musical character, interestingness, context-fit).
+2. Therefore: numeric floors stay as-is — there is nothing to tighten toward.
+   **76% keep-rate IS the calibration result**: the automated stack delivers ~3 in 4
+   patches to Steve's standard.
+3. The 24% gap belongs to judges that perceive character: the dormant LLM listening
+   judge now has a ready-made validation set — run it on these 29 voted clips and
+   measure agreement vs Steve (needs GEMINI_API_KEY). Judge earns a gate slot only
+   if it beats the 76% base rate.
+4. Error bars are wide (7 rejects); more votes sharpen this but don't change the
+   structural conclusion.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →
