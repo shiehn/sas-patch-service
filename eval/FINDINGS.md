@@ -278,6 +278,20 @@ Ship-path options recorded for Steve's call: (A) curated subset — ship ONLY th
 won/tied anchors' patches (blind votes = the curation; ~17 anchors); (B) hold all
 generated content, iterate, re-gate; (C) human-corpus-only permanently.
 
+### Retry round r2 (2026-07-16): transient fitness helps, FX-weighted mutation HURTS
+16 GATE-2 loss-family anchors rerun at pop 64 × 16 gens with dual-probe fitness
+(dominant + staccato-v1) AND FX-×3 mutation weighting:
+- **5/16 improved** (perc-kick-analog, keys-rhodes-lofi, pad-dnb-icy 1→8 passers,
+  pad-granular-cloud 2→7, fx-heartbeat) — absorbed and queued for re-listen.
+- **7/16 all-fail — killed overwhelmingly by the AudioBox floors (aes_pq 39,
+  aes_ce 23), NOT novelty (16).** Conclusion: crude random walks through FX
+  parameters degrade production quality; "polish" is not reachable by unguided
+  FX mutation at these budgets. The two levers were confounded, so **r3 runs
+  transient-only (dual-probe fitness, STANDARD mutation) on the 7 all-fail
+  anchors** to isolate the fitness lever's true contribution.
+- Meta-lesson for the factory: mutation pressure belongs where exemplar variance
+  lives (the sigma map), not where we *wish* improvement came from.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →
