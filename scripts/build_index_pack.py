@@ -35,7 +35,7 @@ def main() -> None:
     ap.add_argument("--version", required=True)
     args = ap.parse_args()
 
-    files = sorted(p for p in SRC.iterdir() if p.is_file() and p.name != "fxp-hash-cache.json")
+    files = sorted(p for p in SRC.rglob("*") if p.is_file() and p.name != "fxp-hash-cache.json")
     if not any(p.name == "manifest.json" for p in files):
         sys.exit(f"no client pack at {SRC} — run scripts/export_client_pack.py first")
 
@@ -63,7 +63,7 @@ def main() -> None:
         info.external_attr = 0o644 << 16
         zf.writestr(info, json.dumps(marker, indent=2, sort_keys=True))
         for p in files:
-            info = zipfile.ZipInfo(p.name, date_time=FIXED_DATE)
+            info = zipfile.ZipInfo(str(p.relative_to(SRC)), date_time=FIXED_DATE)
             info.external_attr = 0o644 << 16
             info.compress_type = zipfile.ZIP_DEFLATED
             zf.writestr(info, p.read_bytes())

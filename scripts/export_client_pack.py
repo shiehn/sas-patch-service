@@ -72,14 +72,31 @@ def main() -> None:
             r["obs_idx"] = [remap[i] for i in r["obs_idx"]]
         print(f"curated: {sum(1 for k in keep_mask if not k)} generated patches excluded")
 
+    # generated patches have no file on end-user machines — the pack CARRIES their
+    # fxp bytes (generated/<safe-id>.fxp); the client scans this dir alongside the
+    # Surge library so hash-intersection finds them like any local patch.
+    gen_dir = OUT / "generated"
+    if gen_dir.exists():
+        import shutil as _sh
+        _sh.rmtree(gen_dir)
+    gen_dir.mkdir(parents=True, exist_ok=True)
+
+    def _safe(pid):
+        return pid.replace("/", "__").replace(" ", "_")
+
     t0 = time.time()
     out_rows = []
     skipped = 0
+    gen_carried = 0
     for i, r in enumerate(rows):
         c = corpus.get(r["id"])
         fxp = c["fxp"] if c["fxp"].startswith("/") else str(DATA_DIR / c["fxp"])
         try:
-            digest = hashlib.sha256(Path(fxp).read_bytes()).hexdigest()
+            data = Path(fxp).read_bytes()
+            digest = hashlib.sha256(data).hexdigest()
+            if r["source"] == "generated":
+                (gen_dir / f"{_safe(r['id'])}.fxp").write_bytes(data)
+                gen_carried += 1
         except OSError:
             skipped += 1
             digest = None
@@ -114,7 +131,8 @@ def main() -> None:
     size = sum((OUT / n).stat().st_size for n in os.listdir(OUT))
     print(json.dumps(manifest, indent=2))
     print(f"hashed {len(out_rows)-skipped}/{len(out_rows)} fxp files "
-          f"(skipped {skipped}); pack size {size/1e6:.1f} MB; {time.time()-t0:.1f}s")
+          f"(skipped {skipped}; {gen_carried} generated fxp CARRIED in pack); "
+          f"pack size {size/1e6:.1f} MB; {time.time()-t0:.1f}s")
 
 
 if __name__ == "__main__":
