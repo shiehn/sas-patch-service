@@ -71,6 +71,8 @@ Two supporting pieces make this useful beyond a demo:
 
 Empirical findings so far (including one broken-model gotcha worth reading before
 you trust any CLAP checkpoint): **[`eval/FINDINGS.md`](eval/FINDINGS.md)**.
+The recurring breed → gate → listen → ship cycle is documented in
+**[`RUNBOOK.md`](RUNBOOK.md)**.
 
 ## Setup
 
