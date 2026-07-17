@@ -352,3 +352,12 @@ instrument. Validation rows: data/judge_validation.json.
       probes on niche patches); fold into role-affinity derivation
 - [ ] Role-affinity derivation (probes-that-speak + register map) → replaces category
       substring filter with the product's role filter
+
+### Territory listen + pack v3 SHIPPED (2026-07-17)
+Steve's territory session: **2 wins (whale-glide lead, generative bells — machine
+beat human sound design outright) + 6 ties + 7 losses = 8/15 at parity-or-better.
+53% ship-rate in new territory vs 0% in loss-family retries** — the territory
+strategy is now ear-confirmed twice. Ship list grew 18→26 anchors / 43→58 patches;
+pack v3 uploaded (sha b15a5bb3…) + registry bumped to expectedVersion 3
+(sas-platform 4cb313c2, pushed). Overall GATE-2 wholesale tally: 31% — curation
+remains the shipping mechanism, by design.
