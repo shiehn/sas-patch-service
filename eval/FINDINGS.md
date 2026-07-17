@@ -323,6 +323,21 @@ remaining taste variance. Rubric iteration possible (harsher framing, few-shot o
 his rejects) but expectations low; the blind A/B remains the only binding taste
 instrument. Validation rows: data/judge_validation.json.
 
+### Territory sweep + r3 verdict (2026-07-16 night)
+- **Territory (48 new winning-family anchors, 84 min): 46/48 beat ceiling, 197
+  strict-gate passers.** Clean-toned territory dominates the passing set (slow-breath
+  pad 7/8, tanpura drone 8/8, reversed swell 8/8, cathedral pad 4/8).
+- **r3 unconfounding: FX-mutation was NOT the main killer** — 6/7 all-fail anchors
+  still fail with standard mutation (only keys-wurli-warm recovered, 5 passers).
+- **GATE-DESIGN DISCOVERY: the AudioBox floors are class-blind and systematically
+  reject intentional lo-fi/noise craft.** Huge-gain texture/ambience anchors
+  (city-distant +0.22, rain-window +0.20, cave-drip +0.17, tape-loop, deep-forest)
+  all died 0/8 at aes floors — vinyl crackle IS noise, that's the craft. This also
+  retro-explains most r2/r3 all-fails (noise-sweep, granular-stutter, vinyl).
+  **TODO (next engineering item): per-family floor calibration** — percentiles from
+  factory members of the same family (FX/Atmospheres/Soundscapes exist in-corpus) —
+  then re-verify the parked noisy-texture campaigns.
+
 ### Open items
 - [x] GATE 1 listening protocol: **`eval/listen_ab.py` built** — blind A/B, semantic
       top-5 vs today's random-within-category, sides shuffled server-side, votes →
