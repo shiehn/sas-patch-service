@@ -215,5 +215,6 @@ Phase 0 of the Signals & Sorcery *Semantic Patch Service* initiative — prove
 retrieval quality over the existing human-made corpus before building anything
 bigger. Next: blind listening gate, register-validity features, a caption-based
 second retrieval channel, then (phased) generation of new curated patches and a
-serving tier. Design doc lives in the S&S platform repo
-(`sas-app/docs/semantic-patch-service-proposal.md`).
+serving tier. The original design doc (`sas-app/docs/semantic-patch-service-proposal.md`)
+was removed 2026-07-19 after the service shipped — it lives in the platform repo's
+git history; current ops live in `RUNBOOK.md`.
