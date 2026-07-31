@@ -8,6 +8,8 @@ Ground rules (empirically established):
 - The ~766 control-group params do NOT carry modulation routings, step-seq/MSEG
   data, or embedded wavetables. Children therefore derive by loadPatch(parent)
   followed by setParamVal deltas — never by replaying values onto an init patch.
+  (Since 2026-07-30, deltas may ALSO carry curated mod-matrix depths via
+  "MOD/<source>:<param key>" keys — see ACID_MOD_ROUTES.)
 - Osc-type mutations never select wavetable-data types (Wavetable/Window — their
   sample data embeds into saved patches; provenance policy) nor Audio Input
   (silent without input).
@@ -16,7 +18,7 @@ Ground rules (empirically established):
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
 # surgepy getParamValType returns strings: 'int' | 'bool' | 'float'
@@ -24,11 +26,64 @@ VT_INT = "int"
 VT_BOOL = "bool"
 VT_FLOAT = "float"
 
-# Mutable control groups. GLOBAL is excluded (scene mode, MIDI config, master
-# levels — logistics, not timbre).
+# Mutable control groups. GLOBAL is excluded AS A GROUP (scene mode, MIDI
+# config, master levels — logistics), but the scene-level timbre/expression
+# params hiding inside it are allowlisted by exact name below (acid program,
+# 2026-07-30: portamento + mono play mode ARE the 303 slide contract).
 MUTABLE_GROUPS = ("OSC", "MIX", "FILTER", "ENV", "LFO", "FX")
 
+# cg_GLOBAL params that are timbre/expression, not logistics. Matched by EXACT
+# getName() per entry; entry 0 (patch globals: Global Volume, Scene Mode,
+# Split Point, ...) contains none of these names, so only the per-scene
+# entries contribute. Play Mode's range is clamped to exclude Latch (5) —
+# a latched voice never releases in headless probe renders.
+MUTABLE_GLOBAL_NAMES = (
+    "Portamento",            # slide glide time (log2 s; min = instant)
+    "Play Mode",             # poly | mono | mono-st | mono(fp) | mono-st(fp)
+    "Velocity > VCA Gain",   # velocity→amp accent depth (dB)
+    "Feedback",              # scene filter-block feedback
+    "Highpass",              # scene highpass
+    "Waveshaper Type",       # acid grit
+    "Waveshaper Drive",
+)
+_PLAY_MODE_MAX = 4.0  # exclude Latch
+
 FORBIDDEN_OSC_TYPES = ("wavetable", "window", "audio in")
+
+# ---- curated mod-matrix routings (delta channel "MOD/<source>:<param key>") ----
+#
+# The mod matrix is patch-stream state surgepy CAN write (setModDepth01) but the
+# value snapshot never carried. Rather than opening every (source × target)
+# pair, evolution gets a curated acid/motion set; depths ride the SAME delta
+# dict as values, so render workers, survivor writes, and crossover inherit
+# them with zero extra plumbing. Depth domain is Surge's normalized [-1, 1].
+MOD_KEY_PREFIX = "MOD/"
+
+@dataclass(frozen=True)
+class ModRoute:
+    source: str        # surgepy.constants name minus the "ms_" prefix
+    target_name: str   # exact ParamSpec.name (first match wins = scene A)
+    lo: float
+    hi: float
+
+ACID_MOD_ROUTES: Tuple[ModRoute, ...] = (
+    ModRoute("velocity", "Filter 1 Cutoff", 0.0, 0.6),   # the 303 accent
+    ModRoute("lfo1", "Filter 1 Cutoff", -0.6, 0.6),      # wobble depth
+)
+
+
+def mod_key(source: str, param_key: str) -> str:
+    return f"{MOD_KEY_PREFIX}{source}:{param_key}"
+
+
+def parse_mod_key(key: str) -> Optional[Tuple[str, str]]:
+    """"MOD/velocity:FILTER/0/2" -> ("velocity", "FILTER/0/2"); None if not a MOD key."""
+    if not key.startswith(MOD_KEY_PREFIX):
+        return None
+    source, sep, param_key = key[len(MOD_KEY_PREFIX):].partition(":")
+    if not sep or not source or not param_key:
+        return None
+    return source, param_key
 
 
 @dataclass
@@ -59,31 +114,79 @@ class SurgeParams:
             entries = synth.getControlGroup(cg).getEntries()
             for e_idx, entry in enumerate(entries):
                 for p_idx, p in enumerate(entry.getParams()):
-                    spec = ParamSpec(
-                        key=f"{group}/{e_idx}/{p_idx}",
-                        group=group,
-                        entry=e_idx,
-                        index=p_idx,
-                        name=p.getName(),
-                        vmin=float(synth.getParamMin(p)),
-                        vmax=float(synth.getParamMax(p)),
-                        vdef=float(synth.getParamDef(p)),
-                        valtype=str(synth.getParamValType(p)),
-                        handle=p,
-                    )
-                    self.specs.append(spec)
-                    self.by_key[spec.key] = spec
+                    self._add_spec(group, e_idx, p_idx, p)
+
+        # cg_GLOBAL: allowlisted scene-level timbre/expression params only.
+        cg = synth.getControlGroup(sc.cg_GLOBAL)
+        for e_idx, entry in enumerate(cg.getEntries()):
+            for p_idx, p in enumerate(entry.getParams()):
+                if p.getName() in MUTABLE_GLOBAL_NAMES:
+                    self._add_spec("GLOBAL", e_idx, p_idx, p)
+
+    def _add_spec(self, group: str, e_idx: int, p_idx: int, p: object) -> None:
+        name = str(p.getName())
+        vmax = float(self.synth.getParamMax(p))
+        if group == "GLOBAL" and name == "Play Mode":
+            vmax = min(vmax, _PLAY_MODE_MAX)
+        spec = ParamSpec(
+            key=f"{group}/{e_idx}/{p_idx}",
+            group=group,
+            entry=e_idx,
+            index=p_idx,
+            name=name,
+            vmin=float(self.synth.getParamMin(p)),
+            vmax=vmax,
+            vdef=float(self.synth.getParamDef(p)),
+            valtype=str(self.synth.getParamValType(p)),
+            handle=p,
+        )
+        self.specs.append(spec)
+        self.by_key[spec.key] = spec
 
     # ---- snapshot / apply -----------------------------------------------------
 
     def snapshot(self) -> Dict[str, float]:
+        """Control-group values only. Mod-matrix depths are NOT snapshotted —
+        children inherit the parent's routings via loadPatch and the delta's
+        MOD/ keys override on top (see ACID_MOD_ROUTES)."""
         return {s.key: float(self.synth.getParamVal(s.handle)) for s in self.specs}
 
     def apply(self, values: Dict[str, float]) -> None:
         for key, val in values.items():
+            if key.startswith(MOD_KEY_PREFIX):
+                self._apply_mod(key, float(val))
+                continue
             spec = self.by_key.get(key)
             if spec is not None:
                 self.synth.setParamVal(spec.handle, float(val))
+
+    def _apply_mod(self, key: str, depth: float) -> None:
+        parsed = parse_mod_key(key)
+        if parsed is None:
+            return
+        source, param_key = parsed
+        spec = self.by_key.get(param_key)
+        if spec is None:
+            return
+        try:
+            from surgepy import constants as sc  # type: ignore
+
+            ms_id = getattr(sc, f"ms_{source}", None)
+            if ms_id is None:
+                return
+            mod_source = self.synth.getModSource(ms_id)
+            if not self.synth.isValidModulation(spec.handle, mod_source):
+                return
+            self.synth.setModDepth01(spec.handle, mod_source, float(depth))
+        except Exception:
+            return  # a bad routing must never kill a render/save
+
+    def find_first_by_name(self, name: str) -> Optional[ParamSpec]:
+        """First spec (enumeration order == scene A first) with this exact name."""
+        for spec in self.specs:
+            if spec.name == name:
+                return spec
+        return None
 
     # ---- osc-type guard ---------------------------------------------------------
 
@@ -144,6 +247,12 @@ class MutationConfig:
     # {"FX": 3.0} triples the chance FX blocks are touched (production-polish
     # emphasis for the GATE-2 loss families)
     group_weights: Optional[Dict[str, float]] = None
+    # curated mod-matrix routings (acid program): per child, chance of one
+    # gaussian step on one route's depth. Routes default to ACID_MOD_ROUTES;
+    # set mod_routes=() to disable entirely.
+    mod_route_prob: float = 0.25
+    mod_route_sigma: float = 0.15
+    mod_routes: Tuple[ModRoute, ...] = field(default_factory=lambda: ACID_MOD_ROUTES)
 
 
 def mutate_values(
@@ -200,6 +309,19 @@ def mutate_values(
             elif spec.valtype == VT_BOOL:
                 if rng.random() < config.bool_flip_prob:
                     delta[spec.key] = 0.0 if current >= 0.5 else 1.0
+
+    # Mod-matrix gene: one gaussian step on one curated route's depth. The
+    # walk starts from the parent's DELTA depth (0.0 when the route was never
+    # touched) — seeds' own routings still sound (loadPatch carries them);
+    # this only steers the evolved override.
+    if config.mod_routes and rng.random() < config.mod_route_prob:
+        route = rng.choice(list(config.mod_routes))
+        spec = params.find_first_by_name(route.target_name)
+        if spec is not None:
+            key = mod_key(route.source, spec.key)
+            current = parent.get(key, 0.0)
+            depth = min(route.hi, max(route.lo, current + rng.gauss(0, config.mod_route_sigma)))
+            delta[key] = depth
     return delta
 
 

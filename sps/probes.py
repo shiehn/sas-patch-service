@@ -88,4 +88,23 @@ STACCATO = Probe(
     total_sec=4.5,
 )
 
-PROBES: Tuple[Probe, ...] = (BASS_RIFF, LOW_SUSTAIN, MID_PHRASE, PAD_CHORD, STACCATO)
+# v3 (2026-07-30): acid/motion — bar 1 is a mono low riff whose consecutive
+# notes OVERLAP (gate 0.32 > step 0.25, all adjacent pitches distinct), so
+# portamento + mono play modes and slide character become audible; bar 2
+# answers with hard-accented staccato squelch. Velocity swings 64↔127 so
+# velocity→cutoff / velocity→VCA accents register in the embedding. Added
+# for the acid-303 / wobble campaigns (staccato-v1 mixed-probe precedent).
+ACID_RIFF = Probe(
+    id="acid-riff-v1",
+    events=tuple(
+        # bar 1 ends on E2 so the seam overlap slides INTO bar 2's A1 downbeat
+        # (a same-pitch seam would read as retrigger noise, not a slide).
+        _riff([(33, 127), (36, 70), (45, 118), (38, 64), (36, 122), (31, 70), (38, 112), (40, 66)],
+              start=0.0, step=0.25, gate=0.32)
+        + _riff([(33, 127), (33, 64), (33, 112), (45, 127), (33, 64), (36, 120), (33, 68), (31, 127)],
+                start=2.0, step=0.25, gate=0.11)
+    ),
+    total_sec=6.0,
+)
+
+PROBES: Tuple[Probe, ...] = (BASS_RIFF, LOW_SUSTAIN, MID_PHRASE, PAD_CHORD, STACCATO, ACID_RIFF)

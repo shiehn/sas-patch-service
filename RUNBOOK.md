@@ -105,3 +105,34 @@ GEMINI_API_KEY=$(cat .gemini_key) .venv/bin/python scripts/caption_corpus.py
   The blind A/B is the only binding instrument.
 - Published pack versions are immutable — always bump, never overwrite.
 - Bucket uploads are private by default; apply the AllUsers ACL every time.
+
+## Acid / motion campaigns (2026-07-30)
+
+The acid program opened three gene channels (see `sps/params.py`,
+`sps/motion_traits.py`, tests in `tests/test_acid_program.py`):
+
+1. **Scene expression params** — `MUTABLE_GLOBAL_NAMES` allowlists Portamento,
+   Play Mode (Latch excluded), Velocity > VCA Gain, Feedback, Highpass, and
+   the Waveshaper pair out of cg_GLOBAL. Mono + portamento is the 303 slide
+   contract; campaigns get them as ordinary blocks ("GLOBAL/1/…" = scene A).
+2. **Mod-matrix depths** — delta keys `MOD/<source>:<param key>` ride the same
+   dict as values (`ACID_MOD_ROUTES`: velocity→cutoff = the accent,
+   lfo1→cutoff = wobble depth; ~25% of children step one route). Render
+   workers, survivor writes, and crossover inherit them for free.
+3. **LFO temposync** — an XML-only flag surgepy can't reach. Prep SEEDS before
+   the campaign (fitness must hear it):
+   `python scripts/set_motion_traits.py --out-dir data/seeds-synced --lfo 1 <seeds...>`
+   Children inherit via loadPatch(parent); survivors keep it.
+
+**Probe**: add `acid-riff-v1` to `fitness_probes` for acid/wobble anchors — bar
+1 is overlapped-slide legato (portamento audible), bar 2 accented staccato
+squelch (velocity routing audible). Mixed probe sets stay safe (per-patch obs
+maps); older corpus entries simply lack the observation until re-embedded.
+
+**Targets** (from data/anchor_coverage.json): `lead-acid-hi`,
+`pad-gated-trance`, `fx-riser-tension` are sparse; `bass-acid-303` /
+`bass-wobble-dubstep` are covered but have never shipped a curated patch —
+route campaign survivors through the normal §2–§4 gates.
+
+Tests: `./tests/run_tests.sh` (pytest; surgepy-backed tests self-skip when the
+native .so is absent).
