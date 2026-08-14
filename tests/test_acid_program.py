@@ -46,6 +46,14 @@ def surgepy_or_none():
 
 needs_surgepy = pytest.mark.skipif(surgepy_or_none() is None, reason="surgepy .so not available")
 
+# The .fxp fixture comes from the third_party/surge clone (README setup step
+# 2), which is NOT part of this repo — skip cleanly instead of erroring on a
+# fresh checkout.
+needs_init_saw = pytest.mark.skipif(
+    not INIT_SAW.exists(),
+    reason="third_party/surge not cloned (README setup step 2) — Init Saw.fxp missing",
+)
+
 
 # ---------------------------------------------------------------------------
 # MOD/ key contract (no surgepy needed — fake synth pins the wiring)
@@ -149,6 +157,7 @@ def test_mutation_can_emit_mod_route_gene():
 # temposync XML trait
 # ---------------------------------------------------------------------------
 
+@needs_init_saw
 def test_temposync_xml_sets_and_clears_attribute():
     f = fxp_mod.read_file(str(INIT_SAW))
     parsed = parse_patch_stream(f.chunk)
@@ -172,6 +181,7 @@ def test_temposync_xml_sets_and_clears_attribute():
         set_lfo_temposync_xml(b"<not-a-patch/>", lfo=1)
 
 
+@needs_init_saw
 def test_temposync_stream_recomputes_header_and_preserves_tail():
     f = fxp_mod.read_file(str(INIT_SAW))
     out = set_lfo_temposync_stream(f.chunk, lfos=(1,))
